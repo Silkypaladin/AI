@@ -1,7 +1,8 @@
 import random
 import matplotlib.pyplot as plt
 import copy
-COLORS = ['purple', 'grey', 'lime', 'navy', 'red', 'green', 'orange', 'blue', 'deeppink']
+COLORS = ['purple', 'red', 'lime', 'green', 'grey']
+COUNTER = 0
 
 
 class Point:
@@ -10,6 +11,8 @@ class Point:
         self.x = x
         self.y = y
         self.available_connections = list()
+        self.domain = list()
+        self.color = ""
 
     def __eq__(self, other):
         return self.x == other.x and self.y == other.y
@@ -116,6 +119,11 @@ class Graph:
             new_connections.sort(key=lambda p: (p.x - self.points[i].x) ** 2 + (p.y - self.points[i].y) ** 2)
             self.points[i].available_connections = new_connections
 
+    def set_beginning_domain(self, colors_am):
+        for i in range(self.points_amount):
+            for j in range(colors_am):
+                self.points[i].domain.append(COLORS[j])
+
     def generate_connections(self):
         unfinished_points = list()
         for point in self.points:
@@ -135,13 +143,18 @@ class Graph:
             if len(current_point.available_connections) > 0:
                 unfinished_points.append(current_point)
 
-    def begin_backtracking(self, colors):
+    def begin_backtracking(self, colors, colors_am):
         assignment = [None] * self.points_amount
         assignment[0] = colors[0]
-        result = self.backtracking(assignment, 1, colors)
-        return result
+        result = self.backtracking(assignment, 1, colors[0:colors_am])
+        if result:
+            self.draw_colored_graph(result)
+        else:
+            print("Could not find any solutions.")
 
     def backtracking(self, assignment, position, colors):
+        global COUNTER
+        COUNTER += 1
         if not self.is_assignment_valid(assignment):
             return False
         if self.points_amount == position:
@@ -165,6 +178,38 @@ class Graph:
                     return False
         return True
 
+    def assignment_valid(self, point, color):
+        for p in self.connections_dictionary[point]:
+            if p.color == color:
+                return False
+        return True
+
+    def begin_forward_checking(self, colors_num):
+        self.set_beginning_domain(colors_num)
+        result = self.forward_checking(0)
+        if all(p.color != '' for p in self.points):
+            self.draw_colored_graph_forward_checking()
+        return result
+
+    def forward_checking(self, position):
+        global COUNTER
+        COUNTER += 1
+        for color in self.points[position].domain:
+            if self.assignment_valid(self.points[position], color):
+                self.points[position].color = color
+                for conn in self.connections_dictionary[self.points[position]]:
+                    if color in conn.domain:
+                        conn.domain.remove(color)
+                if position + 1 < len(self.points):
+                    sol = self.forward_checking(position + 1)
+                    if sol:
+                        return sol
+                    else:
+                        for conn in self.connections_dictionary[self.points[position]]:
+                            if color not in conn.domain:
+                                conn.domain.append(color)
+        return False
+
     def is_point_new(self, x, y):
         for point in self.points:
             if point.x == x and point.y == y:
@@ -172,35 +217,40 @@ class Graph:
         return True
 
     def draw_graph(self):
-        for point in self.points:
-            plt.plot(point.x, point.y, 'o', color="black", markersize=12)
         for conn in self.connections:
             plt.plot([conn[0].x, conn[1].x], [conn[0].y, conn[1].y], 'blue')
+        for point in self.points:
+            plt.plot(point.x, point.y, 'o', color="black", markersize=12)
         plt.show()
 
     def draw_colored_graph(self, assignment):
-        for point in self.points:
-            plt.plot(point.x, point.y, 'o', color=assignment[self.points.index(point)], markersize=12)
         for conn in self.connections:
             plt.plot([conn[0].x, conn[1].x], [conn[0].y, conn[1].y], 'blue')
+        for point in self.points:
+            plt.plot(point.x, point.y, 'o', color=assignment[self.points.index(point)], markersize=12)
+        plt.show()
+
+    def draw_colored_graph_forward_checking(self):
+        for conn in self.connections:
+            plt.plot([conn[0].x, conn[1].x], [conn[0].y, conn[1].y], 'blue')
+        for point in self.points:
+            plt.plot(point.x, point.y, 'o', color=point.color, markersize=12)
         plt.show()
 
 
-def test_csp(plate_x, plate_y):
+def test_csp(plate_x, plate_y, colors_am):
     g = Graph(plate_x, plate_y)
     g.generate_points()
     g.set_beginning_available_points()
     g.generate_connections()
     g.draw_graph()
-    res = g.begin_backtracking(COLORS)
-    if res:
-        g.draw_colored_graph(res)
-    else:
-        print("Could not find any solutions.")
+    g.begin_backtracking(COLORS, colors_am)
+    # g.begin_forward_checking(colors_am)
 
 
 if __name__ == '__main__':
-    test_csp(5, 5)
+    test_csp(5, 5, 4)
+    print(COUNTER)
 
 
 
