@@ -1,8 +1,10 @@
 import random
 import matplotlib.pyplot as plt
 import copy
+import time
 COLORS = ['purple', 'red', 'lime', 'green', 'grey']
 COUNTER = 0
+BACK_COUNTER = 0
 
 
 class Point:
@@ -12,6 +14,7 @@ class Point:
         self.y = y
         self.available_connections = list()
         self.domain = list()
+        self.removed = list()
         self.color = ""
 
     def __eq__(self, other):
@@ -153,8 +156,8 @@ class Graph:
             print("Could not find any solutions.")
 
     def backtracking(self, assignment, position, colors):
-        global COUNTER
-        COUNTER += 1
+        global BACK_COUNTER
+        BACK_COUNTER += 1
         if not self.is_assignment_valid(assignment):
             return False
         if self.points_amount == position:
@@ -192,8 +195,8 @@ class Graph:
         return result
 
     def forward_checking(self, position):
-        global COUNTER
-        COUNTER += 1
+        global BACK_COUNTER
+        BACK_COUNTER += 1
         for color in self.points[position].domain:
             if self.assignment_valid(self.points[position], color):
                 self.points[position].color = color
@@ -209,6 +212,93 @@ class Graph:
                             if color not in conn.domain:
                                 conn.domain.append(color)
         return False
+
+    def begin_augmented_backtracking(self, colors_num, ac3=False, lcv=False, mrv=False):
+        self.set_beginning_domain(colors_num)
+        self.augmented_backtracking(0, 0, ac3, lcv, mrv)
+        if all(v.color != '' for v in self.points):
+            self.draw_colored_graph_forward_checking()
+        else:
+            print("No possible solution found")
+
+    def augmented_backtracking(self, position, index, ac3=False, lcv=False, mrv=False):
+        global COUNTER
+        COUNTER += 1
+        if lcv:
+            self.run_lcv_on_domain(self.points[index])
+        for color in self.points[position].domain:
+            if self.assignment_valid(self.points[position], color):
+                self.points[position].color = color
+                for conn in self.connections_dictionary[self.points[position]]:
+                    if color in conn.domain:
+                        conn.domain.remove(color)
+                        conn.removed.append(color)
+                if ac3:
+                    self.ac3()
+                if position + 1 < len(self.points) and any(p.color == '' for p in self.points):
+                    if mrv:
+                        index = self.run_mrv_on_points()
+                    else:
+                        index = position + 1
+                    sol = self.augmented_backtracking(position + 1, index, ac3, lcv, mrv)
+                    if sol:
+                        return sol
+                    else:
+                        for point in self.points:
+                            point.domain += point.removed
+                            point.removed.clear()
+        return False
+
+    def ac3(self):
+        q = []
+        for point in self.points:
+            for neighbour in self.connections_dictionary[point]:
+                q.append((point, neighbour))
+
+        while q:
+            p1, p2 = q.pop(0)
+            if self.force_arc_consistency(p1, p2):
+                for neigh in self.connections_dictionary[p1]:
+                    q.append((neigh, p1))
+
+    @staticmethod
+    def force_arc_consistency(p1, p2):
+        if len(p1.domain) > 1:
+            return False
+
+        removed = False
+        for color in p1.domain:
+            if color in p2.domain:
+                p1.domain.remove(color)
+                p1.removed.append(color)
+                removed = True
+                break
+        return removed
+
+    def run_lcv_on_domain(self, point):
+        amounts = list()
+        sorted_colors = list()
+        for color in point.domain:
+            amounts.append([color, 0])
+            for neighbour in self.connections_dictionary[point]:
+                if color in neighbour.domain:
+                    amounts[len(amounts) - 1][1] += 1
+        amounts.sort(key=lambda x: x[1])
+        for sort in amounts:
+            sorted_colors.append(sort[0])
+        point.domain = sorted_colors
+
+    def run_mrv_on_points(self):
+        available = []
+        for point in self.points:
+            if point.color == '':
+                available.append(point)
+
+        smallest = 0
+        for point in available[1:]:
+            if len(point.domain) < len(available[smallest].domain):
+                smallest = available.index(point)
+        return self.points.index(available[smallest])
 
     def is_point_new(self, x, y):
         for point in self.points:
@@ -246,11 +336,14 @@ def test_csp(plate_x, plate_y, colors_am):
     g.draw_graph()
     g.begin_backtracking(COLORS, colors_am)
     # g.begin_forward_checking(colors_am)
+    # g.begin_augmented_backtracking(colors_am, ac3=False, lcv=False, mrv=True)
 
 
 if __name__ == '__main__':
-    test_csp(5, 5, 4)
+    test_csp(8, 8, 4)
     print(COUNTER)
+    print(BACK_COUNTER)
+
 
 
 
