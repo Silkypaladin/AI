@@ -1,2 +1,4 @@
 genetic/temp.py
 .idea
+env/
+__pycache__/
