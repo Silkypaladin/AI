@@ -111,7 +111,7 @@ class Board:
             sign = -1
         right_hole = Board.h1_heuristic(board, starting_player)
         # right_hole = 0
-        return 3 * (board.holes[7].stones - board.holes[0].stones) + (0.161 * right_hole * sign) + (0.29 * number_of_moves * sign)
+        return 2 * (board.holes[7].stones - board.holes[0].stones) + (0.161 * right_hole * sign) + (0.29 * number_of_moves * sign)
 
     def add_remaining_stones_to_winners_well(self):
         start_hole = 1
